@@ -113,39 +113,92 @@
     gap: 12px;
   }
 
-  .input-row {
-    display: flex;
-    gap: 10px;
+  /* Answer tray */
+  .answer-tray {
     width: 100%;
-    max-width: 360px;
-  }
-
-  .input-row input {
-    flex: 1;
-    padding: 14px 18px;
-    border: 2.5px solid #e2e8f0;
-    border-radius: 14px;
-    font-size: 1.15rem;
-    outline: none;
+    min-height: 60px;
+    border: 2.5px dashed var(--primary);
+    border-radius: 16px;
+    padding: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
     transition: border-color .2s, box-shadow .2s;
-    font-family: inherit;
-    min-width: 0;
   }
 
-  .input-row input:focus {
-    border-color: var(--primary-light);
-    box-shadow: 0 0 0 4px rgba(79,70,229,0.1);
-  }
-
-  .input-row input.correct {
+  .answer-tray.correct {
     border-color: var(--success);
     box-shadow: 0 0 0 4px rgba(16,185,129,0.13);
   }
 
-  .input-row input.wrong {
+  .answer-tray.wrong {
     border-color: var(--error);
     box-shadow: 0 0 0 4px rgba(239,68,68,0.1);
     animation: shake .4s;
+  }
+
+  .tray-placeholder {
+    color: var(--text-light);
+    font-size: 1rem;
+    padding: 4px 8px;
+    user-select: none;
+  }
+
+  /* Tile buttons */
+  .tile {
+    border-radius: 24px;
+    padding: 10px 18px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    border: 2.5px solid var(--primary);
+    transition: transform .12s, opacity .12s;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    line-height: 1.2;
+  }
+
+  .tile:active { transform: scale(0.93); }
+
+  .tile-bank {
+    background: #fff;
+    color: var(--primary);
+  }
+
+  .tile-tray {
+    background: var(--primary);
+    color: #fff;
+  }
+
+  .tile-gap {
+    visibility: hidden;
+    padding: 10px 18px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    border: 2.5px solid transparent;
+    border-radius: 24px;
+    line-height: 1.2;
+  }
+
+  /* Word bank */
+  .word-bank {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    padding: 4px 0;
+  }
+
+  /* Action row (Check + Wis) */
+  .action-row {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+    max-width: 360px;
+    justify-content: center;
   }
 
   @keyframes shake {
@@ -262,9 +315,13 @@
   </div>
 
   <div class="input-area">
-    <div class="input-row">
-      <input type="text" id="answer" placeholder="Typ de tijd..." autocomplete="off" autocapitalize="off" spellcheck="false">
+    <div class="answer-tray" id="answerTray">
+      <span class="tray-placeholder" id="trayPlaceholder">Tik de woorden aan...</span>
+    </div>
+    <div class="word-bank" id="wordBank"></div>
+    <div class="action-row">
       <button class="btn btn-primary" id="checkBtn" onclick="checkAnswer()">Check!</button>
+      <button class="btn btn-secondary" id="clearBtn" onclick="clearTray()">Wis</button>
     </div>
     <div class="btn-row">
       <button class="btn btn-secondary" onclick="showHint()">💡 Hint</button>
@@ -557,6 +614,101 @@ function animateConfetti() {
   }
 }
 
+// ── Tile state ──
+let trayWords = [];   // words currently in the answer tray (in order)
+let bankWords = [];   // { word, inTray }
+
+// ── Word bank builder ──
+function buildWordBank(h, m) {
+  const primary = getPrimaryAnswer(h, m);
+  const correctWords = primary.split(' ');
+
+  const pool = ['voor','over','na','half','kwart','uur','vijf','tien','twintig',
+    'een','twee','drie','vier','zes','zeven','acht','negen','twaalf','elf'];
+  const correctSet = new Set(correctWords.map(w => w.toLowerCase()));
+  const distractors = pool.filter(w => !correctSet.has(w));
+
+  // Shuffle distractors and pick ~4
+  for (let i = distractors.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [distractors[i], distractors[j]] = [distractors[j], distractors[i]];
+  }
+  const picked = distractors.slice(0, Math.min(4, distractors.length));
+
+  // Combine and shuffle
+  const all = [...correctWords, ...picked];
+  for (let i = all.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [all[i], all[j]] = [all[j], all[i]];
+  }
+  return all;
+}
+
+function renderTiles() {
+  const tray = document.getElementById('answerTray');
+  const bank = document.getElementById('wordBank');
+  const placeholder = document.getElementById('trayPlaceholder');
+
+  // Render tray
+  // Remove old tray tiles (keep placeholder)
+  tray.querySelectorAll('.tile-tray').forEach(el => el.remove());
+  if (trayWords.length === 0) {
+    placeholder.style.display = '';
+  } else {
+    placeholder.style.display = 'none';
+    trayWords.forEach((word, idx) => {
+      const btn = document.createElement('button');
+      btn.className = 'tile tile-tray';
+      btn.textContent = word;
+      btn.onclick = () => removeTrayTile(idx);
+      tray.appendChild(btn);
+    });
+  }
+
+  // Render bank
+  bank.innerHTML = '';
+  bankWords.forEach((item, idx) => {
+    if (item.inTray) {
+      // Show invisible gap to keep layout stable
+      const gap = document.createElement('span');
+      gap.className = 'tile-gap';
+      gap.textContent = item.word;
+      bank.appendChild(gap);
+    } else {
+      const btn = document.createElement('button');
+      btn.className = 'tile tile-bank';
+      btn.textContent = item.word;
+      btn.onclick = () => addToTray(idx);
+      bank.appendChild(btn);
+    }
+  });
+}
+
+function addToTray(bankIdx) {
+  if (waiting) return;
+  bankWords[bankIdx].inTray = true;
+  trayWords.push(bankWords[bankIdx].word);
+  renderTiles();
+}
+
+function removeTrayTile(trayIdx) {
+  if (waiting) return;
+  const word = trayWords[trayIdx];
+  trayWords.splice(trayIdx, 1);
+  // Return the first matching bank item that is inTray
+  const bankItem = bankWords.find(b => b.inTray && b.word === word);
+  if (bankItem) bankItem.inTray = false;
+  renderTiles();
+}
+
+function clearTray() {
+  if (waiting) return;
+  trayWords = [];
+  bankWords.forEach(b => b.inTray = false);
+  renderTiles();
+  document.getElementById('answerTray').className = 'answer-tray';
+}
+
 // ── Game logic ──
 function generateTime() {
   const mins = hardMode ? allMinutes : easyMinutes;
@@ -572,16 +724,18 @@ function newQuestion() {
   currentMinute = time.minute;
   drawClock(currentHour, currentMinute);
 
-  const input = document.getElementById('answer');
-  input.value = '';
-  input.className = '';
-  input.disabled = false;
-  input.focus();
+  // Reset tiles
+  trayWords = [];
+  const words = buildWordBank(currentHour, currentMinute);
+  bankWords = words.map(w => ({ word: w, inTray: false }));
+  renderTiles();
 
+  document.getElementById('answerTray').className = 'answer-tray';
   document.getElementById('feedback').textContent = '';
   document.getElementById('feedback').className = 'feedback';
   document.getElementById('hintBox').style.display = 'none';
   document.getElementById('checkBtn').disabled = false;
+  document.getElementById('clearBtn').disabled = false;
 }
 
 function normalize(str) {
@@ -595,12 +749,12 @@ function normalizeAliases(str) {
 
 function checkAnswer() {
   if (waiting) return;
-  const input = document.getElementById('answer');
-  const userAnswer = normalize(input.value);
+  const userAnswer = normalize(trayWords.join(' '));
   if (!userAnswer) return;
 
   const accepted = getAcceptedAnswers(currentHour, currentMinute).map(normalize);
   const fb = document.getElementById('feedback');
+  const tray = document.getElementById('answerTray');
   totalQuestions++;
 
   // Match directly OR after normalising "na"↔"over" (both used in Belgian Dutch)
@@ -610,8 +764,7 @@ function checkAnswer() {
     // Correct!
     correctAnswers++;
     consecutiveCorrect++;
-    input.className = 'correct';
-    input.disabled = true;
+    tray.className = 'answer-tray correct';
 
     const cheers = [
       'Super gedaan! 🌟',
@@ -637,10 +790,11 @@ function checkAnswer() {
 
     waiting = true;
     document.getElementById('checkBtn').disabled = true;
+    document.getElementById('clearBtn').disabled = true;
     setTimeout(newQuestion, 1500);
   } else {
     // Wrong
-    input.className = 'wrong';
+    tray.className = 'answer-tray wrong';
     const encouragements = [
       'Probeer het nog eens!',
       'Bijna! Probeer opnieuw!',
@@ -651,7 +805,7 @@ function checkAnswer() {
     fb.className = 'feedback wrong-fb';
     consecutiveCorrect = 0;
 
-    setTimeout(() => { input.className = ''; }, 600);
+    setTimeout(() => { tray.className = 'answer-tray'; }, 600);
     updateScore();
   }
 }
@@ -677,7 +831,7 @@ function skipQuestion() {
 
   waiting = true;
   document.getElementById('checkBtn').disabled = true;
-  document.getElementById('answer').disabled = true;
+  document.getElementById('clearBtn').disabled = true;
   setTimeout(newQuestion, 1800);
 }
 
@@ -710,11 +864,6 @@ function speak(text) {
 function speakAnswer() {
   speak(getPrimaryAnswer(currentHour, currentMinute));
 }
-
-// ── Enter key ──
-document.getElementById('answer').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') checkAnswer();
-});
 
 // ── Start ──
 newQuestion();
