@@ -354,6 +354,7 @@ function getAcceptedAnswers(h, m) {
       break;
     case 25:
       answers.push('5 voor half ' + nhStr);
+      answers.push('5 voor half ' + nextHour(h));
       answers.push('vijf voor half ' + nhStr);
       answers.push('25 over ' + hStr);
       answers.push('vijfentwintig over ' + hStr);
@@ -361,11 +362,13 @@ function getAcceptedAnswers(h, m) {
       break;
     case 30:
       answers.push('half ' + nhStr);
+      answers.push('half ' + nextHour(h));
       answers.push('30 over ' + hStr);
       answers.push('dertig over ' + hStr);
       break;
     case 35:
       answers.push('5 over half ' + nhStr);
+      answers.push('5 over half ' + nextHour(h));
       answers.push('vijf over half ' + nhStr);
       answers.push('5 na half ' + nhStr);
       answers.push('vijf na half ' + nhStr);
@@ -374,8 +377,10 @@ function getAcceptedAnswers(h, m) {
       break;
     case 40:
       answers.push('20 voor ' + nhStr);
+      answers.push('20 voor ' + nextHour(h));
       answers.push('twintig voor ' + nhStr);
       answers.push('10 over half ' + nhStr);
+      answers.push('10 over half ' + nextHour(h));
       answers.push('tien over half ' + nhStr);
       answers.push('10 na half ' + nhStr);
       answers.push('tien na half ' + nhStr);
