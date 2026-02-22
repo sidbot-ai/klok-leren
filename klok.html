@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Klok Leren Lezen!</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f0f4ff;
+    --card: #ffffff;
+    --primary: #4f46e5;
+    --primary-light: #818cf8;
+    --accent: #f59e0b;
+    --success: #10b981;
+    --error: #ef4444;
+    --text: #1e293b;
+    --text-light: #64748b;
+    --radius: 20px;
+  }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    background-image:
+      radial-gradient(circle at 10% 20%, rgba(79,70,229,0.06) 0%, transparent 50%),
+      radial-gradient(circle at 90% 80%, rgba(245,158,11,0.06) 0%, transparent 50%);
+  }
+
+  h1 {
+    font-size: clamp(1.6rem, 5vw, 2.4rem);
+    color: var(--primary);
+    margin-bottom: 4px;
+    text-align: center;
+  }
+
+  .subtitle {
+    color: var(--text-light);
+    font-size: 1rem;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+
+  /* Score bar */
+  .score-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--card);
+    padding: 10px 24px;
+    border-radius: 40px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    margin-bottom: 20px;
+    font-weight: 600;
+    font-size: 1.05rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .score-bar .stars { font-size: 1.2rem; letter-spacing: 2px; }
+
+  .difficulty-badge {
+    background: var(--accent);
+    color: #fff;
+    font-size: 0.78rem;
+    padding: 3px 12px;
+    border-radius: 20px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .difficulty-badge.hard {
+    background: var(--primary);
+  }
+
+  /* Clock card */
+  .clock-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.07);
+    padding: 28px 28px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    width: 100%;
+    max-width: 420px;
+  }
+
+  /* SVG clock */
+  .clock-wrap {
+    position: relative;
+    width: min(280px, 70vw);
+    height: min(280px, 70vw);
+  }
+
+  .clock-wrap svg { width: 100%; height: 100%; }
+
+  /* Input area */
+  .input-area {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .input-row {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+    max-width: 360px;
+  }
+
+  .input-row input {
+    flex: 1;
+    padding: 14px 18px;
+    border: 2.5px solid #e2e8f0;
+    border-radius: 14px;
+    font-size: 1.15rem;
+    outline: none;
+    transition: border-color .2s, box-shadow .2s;
+    font-family: inherit;
+    min-width: 0;
+  }
+
+  .input-row input:focus {
+    border-color: var(--primary-light);
+    box-shadow: 0 0 0 4px rgba(79,70,229,0.1);
+  }
+
+  .input-row input.correct {
+    border-color: var(--success);
+    box-shadow: 0 0 0 4px rgba(16,185,129,0.13);
+  }
+
+  .input-row input.wrong {
+    border-color: var(--error);
+    box-shadow: 0 0 0 4px rgba(239,68,68,0.1);
+    animation: shake .4s;
+  }
+
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    20%,60% { transform: translateX(-6px); }
+    40%,80% { transform: translateX(6px); }
+  }
+
+  .btn {
+    padding: 12px 22px;
+    border: none;
+    border-radius: 14px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform .15s, box-shadow .15s, background .2s;
+    font-family: inherit;
+    white-space: nowrap;
+  }
+
+  .btn:active { transform: scale(0.96); }
+
+  .btn-primary {
+    background: var(--primary);
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(79,70,229,0.25);
+  }
+
+  .btn-primary:hover { background: #4338ca; }
+
+  .btn-secondary {
+    background: #f1f5f9;
+    color: var(--text);
+  }
+
+  .btn-secondary:hover { background: #e2e8f0; }
+
+  .btn-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  /* Feedback */
+  .feedback {
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    font-weight: 600;
+    text-align: center;
+    padding: 4px 8px;
+    border-radius: 12px;
+    transition: opacity .25s;
+    line-height: 1.4;
+  }
+
+  .feedback.correct-fb {
+    color: var(--success);
+  }
+
+  .feedback.wrong-fb {
+    color: var(--error);
+  }
+
+  .feedback .emoji {
+    font-size: 1.5rem;
+    margin-right: 8px;
+  }
+
+  /* Hint box */
+  .hint-box {
+    background: #fef3c7;
+    color: #92400e;
+    padding: 10px 18px;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    text-align: center;
+  }
+
+  /* Confetti canvas */
+  #confetti {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  /* Responsive */
+  @media (max-width: 440px) {
+    .clock-card { padding: 20px 16px 18px; }
+    .btn { padding: 11px 16px; font-size: 0.92rem; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Hoe laat is het?</h1>
+<p class="subtitle">Leer de klok lezen!</p>
+
+<div class="score-bar">
+  <span id="scoreText">0 van 0 goed!</span>
+  <span class="stars" id="stars"></span>
+  <span class="difficulty-badge" id="diffBadge">Makkelijk</span>
+</div>
+
+<div class="clock-card">
+  <div class="clock-wrap">
+    <svg id="clockSvg" viewBox="0 0 300 300"></svg>
+  </div>
+
+  <div class="input-area">
+    <div class="input-row">
+      <input type="text" id="answer" placeholder="Typ de tijd..." autocomplete="off" autocapitalize="off" spellcheck="false">
+      <button class="btn btn-primary" id="checkBtn" onclick="checkAnswer()">Check!</button>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="showHint()">💡 Hint</button>
+      <button class="btn btn-secondary" onclick="skipQuestion()">⏭ Volgende</button>
+    </div>
+    <div class="feedback" id="feedback"></div>
+    <div class="hint-box" id="hintBox" style="display:none"></div>
+  </div>
+</div>
+
+<canvas id="confetti"></canvas>
+
+<script>
+// ── State ──
+let currentHour = 0;
+let currentMinute = 0;
+let totalQuestions = 0;
+let correctAnswers = 0;
+let consecutiveCorrect = 0;
+let hardMode = false;
+let waiting = false;
+
+const easyMinutes = [0, 15, 30, 45];
+const allMinutes = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
+
+const hourWords = ['twaalf','een','twee','drie','vier','vijf','zes','zeven','acht','negen','tien','elf','twaalf'];
+
+// ── Dutch time logic ──
+function nextHour(h) {
+  return h === 12 ? 1 : h + 1;
+}
+
+function hourWord(h) {
+  return hourWords[h];
+}
+
+function getAcceptedAnswers(h, m) {
+  const answers = [];
+  const hStr = hourWord(h);
+  const nhStr = hourWord(nextHour(h));
+  const numH = String(h);
+  const numM = String(m).padStart(2, '0');
+  const numericFull = numH + ':' + numM;
+  const numericPadH = String(h).padStart(2, '0') + ':' + numM;
+
+  answers.push(numericFull);
+  if (numericPadH !== numericFull) answers.push(numericPadH);
+
+  switch (m) {
+    case 0:
+      answers.push(hStr + ' uur');
+      answers.push(numH + ' uur');
+      break;
+    case 5:
+      answers.push('5 over ' + hStr);
+      answers.push('5 over ' + numH);
+      answers.push('vijf over ' + hStr);
+      answers.push('vijf over ' + numH);
+      answers.push('5 na ' + hStr);
+      answers.push('vijf na ' + hStr);
+      break;
+    case 10:
+      answers.push('10 over ' + hStr);
+      answers.push('10 over ' + numH);
+      answers.push('tien over ' + hStr);
+      answers.push('tien over ' + numH);
+      answers.push('10 na ' + hStr);
+      answers.push('tien na ' + hStr);
+      break;
+    case 15:
+      answers.push('kwart over ' + hStr);
+      answers.push('kwart over ' + numH);
+      answers.push('15 over ' + hStr);
+      answers.push('vijftien over ' + hStr);
+      answers.push('15 na ' + hStr);
+      break;
+    case 20:
+      answers.push('20 over ' + hStr);
+      answers.push('20 over ' + numH);
+      answers.push('twintig over ' + hStr);
+      answers.push('twintig over ' + numH);
+      answers.push('20 na ' + hStr);
+      answers.push('twintig na ' + hStr);
+      answers.push('10 voor half ' + nhStr);
+      answers.push('tien voor half ' + nhStr);
+      break;
+    case 25:
+      answers.push('5 voor half ' + nhStr);
+      answers.push('vijf voor half ' + nhStr);
+      answers.push('25 over ' + hStr);
+      answers.push('vijfentwintig over ' + hStr);
+      answers.push('25 na ' + hStr);
+      break;
+    case 30:
+      answers.push('half ' + nhStr);
+      answers.push('30 over ' + hStr);
+      answers.push('dertig over ' + hStr);
+      break;
+    case 35:
+      answers.push('5 over half ' + nhStr);
+      answers.push('vijf over half ' + nhStr);
+      answers.push('5 na half ' + nhStr);
+      answers.push('vijf na half ' + nhStr);
+      answers.push('25 voor ' + nhStr);
+      answers.push('vijfentwintig voor ' + nhStr);
+      break;
+    case 40:
+      answers.push('20 voor ' + nhStr);
+      answers.push('twintig voor ' + nhStr);
+      answers.push('10 over half ' + nhStr);
+      answers.push('tien over half ' + nhStr);
+      answers.push('10 na half ' + nhStr);
+      answers.push('tien na half ' + nhStr);
+      break;
+    case 45:
+      answers.push('kwart voor ' + nhStr);
+      answers.push('15 voor ' + nhStr);
+      answers.push('vijftien voor ' + nhStr);
+      break;
+    case 50:
+      answers.push('10 voor ' + nhStr);
+      answers.push('tien voor ' + nhStr);
+      break;
+    case 55:
+      answers.push('5 voor ' + nhStr);
+      answers.push('vijf voor ' + nhStr);
+      break;
+  }
+
+  return answers;
+}
+
+function getPrimaryAnswer(h, m) {
+  const hStr = hourWord(h);
+  const nhStr = hourWord(nextHour(h));
+  switch (m) {
+    case 0:  return hStr + ' uur';
+    case 5:  return '5 over ' + hStr;
+    case 10: return '10 over ' + hStr;
+    case 15: return 'kwart over ' + hStr;
+    case 20: return '20 over ' + hStr;
+    case 25: return '5 voor half ' + nhStr;
+    case 30: return 'half ' + nhStr;
+    case 35: return '5 over half ' + nhStr;
+    case 40: return '20 voor ' + nhStr;
+    case 45: return 'kwart voor ' + nhStr;
+    case 50: return '10 voor ' + nhStr;
+    case 55: return '5 voor ' + nhStr;
+  }
+  return '';
+}
+
+// ── Clock drawing ──
+function drawClock(hour, minute) {
+  const svg = document.getElementById('clockSvg');
+  const cx = 150, cy = 150, r = 135;
+
+  let html = '';
+
+  // Drop shadow filter
+  html += `<defs>
+    <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.1"/>
+    </filter>
+    <filter id="handShadow" x="-20%" y="-20%" width="150%" height="150%">
+      <feDropShadow dx="1" dy="1" stdDeviation="2" flood-opacity="0.15"/>
+    </filter>
+  </defs>`;
+
+  // Clock face
+  html += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#fff" stroke="#e2e8f0" stroke-width="4" filter="url(#shadow)"/>`;
+
+  // Outer decorative ring
+  html += `<circle cx="${cx}" cy="${cy}" r="${r - 2}" fill="none" stroke="var(--primary-light)" stroke-width="1.5" opacity="0.3"/>`;
+
+  // Minute ticks
+  for (let i = 0; i < 60; i++) {
+    const angle = (i * 6 - 90) * Math.PI / 180;
+    const isHour = i % 5 === 0;
+    const outerR = r - 8;
+    const innerR = isHour ? r - 24 : r - 16;
+    const x1 = cx + Math.cos(angle) * innerR;
+    const y1 = cy + Math.sin(angle) * innerR;
+    const x2 = cx + Math.cos(angle) * outerR;
+    const y2 = cy + Math.sin(angle) * outerR;
+    const sw = isHour ? 3 : 1.5;
+    const color = isHour ? '#4f46e5' : '#cbd5e1';
+    html += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="${sw}" stroke-linecap="round"/>`;
+  }
+
+  // Numbers
+  for (let i = 1; i <= 12; i++) {
+    const angle = (i * 30 - 90) * Math.PI / 180;
+    const numR = r - 38;
+    const x = cx + Math.cos(angle) * numR;
+    const y = cy + Math.sin(angle) * numR;
+    html += `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central"
+      font-size="22" font-weight="700" fill="var(--text)"
+      font-family="'Segoe UI',system-ui,sans-serif">${i}</text>`;
+  }
+
+  // Hour hand
+  const hourAngle = ((hour % 12) * 30 + minute * 0.5 - 90) * Math.PI / 180;
+  const hourLen = 65;
+  const hourBackLen = 12;
+  const hx = cx + Math.cos(hourAngle) * hourLen;
+  const hy = cy + Math.sin(hourAngle) * hourLen;
+  const hbx = cx - Math.cos(hourAngle) * hourBackLen;
+  const hby = cy - Math.sin(hourAngle) * hourBackLen;
+  html += `<line x1="${hbx}" y1="${hby}" x2="${hx}" y2="${hy}" stroke="#1e293b" stroke-width="7" stroke-linecap="round" filter="url(#handShadow)"/>`;
+
+  // Minute hand
+  const minAngle = (minute * 6 - 90) * Math.PI / 180;
+  const minLen = 95;
+  const minBackLen = 16;
+  const mx = cx + Math.cos(minAngle) * minLen;
+  const my = cy + Math.sin(minAngle) * minLen;
+  const mbx = cx - Math.cos(minAngle) * minBackLen;
+  const mby = cy - Math.sin(minAngle) * minBackLen;
+  html += `<line x1="${mbx}" y1="${mby}" x2="${mx}" y2="${my}" stroke="var(--primary)" stroke-width="4.5" stroke-linecap="round" filter="url(#handShadow)"/>`;
+
+  // Center cap
+  html += `<circle cx="${cx}" cy="${cy}" r="8" fill="var(--primary)" stroke="#fff" stroke-width="2.5"/>`;
+
+  svg.innerHTML = html;
+}
+
+// ── Confetti ──
+const confettiCanvas = document.getElementById('confetti');
+const confettiCtx = confettiCanvas.getContext('2d');
+let confettiPieces = [];
+let confettiAnimId = null;
+
+function resizeConfetti() {
+  confettiCanvas.width = window.innerWidth;
+  confettiCanvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeConfetti);
+resizeConfetti();
+
+function launchConfetti() {
+  confettiPieces = [];
+  const colors = ['#4f46e5','#f59e0b','#10b981','#ef4444','#ec4899','#8b5cf6','#06b6d4'];
+  for (let i = 0; i < 60; i++) {
+    confettiPieces.push({
+      x: confettiCanvas.width / 2 + (Math.random() - 0.5) * 200,
+      y: confettiCanvas.height / 2,
+      vx: (Math.random() - 0.5) * 14,
+      vy: -Math.random() * 16 - 4,
+      size: Math.random() * 8 + 4,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      rotation: Math.random() * 360,
+      rotSpeed: (Math.random() - 0.5) * 12,
+      life: 1,
+    });
+  }
+  if (!confettiAnimId) animateConfetti();
+}
+
+function animateConfetti() {
+  confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+  let alive = false;
+  for (const p of confettiPieces) {
+    if (p.life <= 0) continue;
+    alive = true;
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.45;
+    p.rotation += p.rotSpeed;
+    p.life -= 0.012;
+    confettiCtx.save();
+    confettiCtx.translate(p.x, p.y);
+    confettiCtx.rotate(p.rotation * Math.PI / 180);
+    confettiCtx.globalAlpha = Math.max(0, p.life);
+    confettiCtx.fillStyle = p.color;
+    confettiCtx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
+    confettiCtx.restore();
+  }
+  if (alive) {
+    confettiAnimId = requestAnimationFrame(animateConfetti);
+  } else {
+    confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+    confettiAnimId = null;
+  }
+}
+
+// ── Game logic ──
+function generateTime() {
+  const mins = hardMode ? allMinutes : easyMinutes;
+  const hour = Math.floor(Math.random() * 12) + 1;
+  const minute = mins[Math.floor(Math.random() * mins.length)];
+  return { hour, minute };
+}
+
+function newQuestion() {
+  waiting = false;
+  const time = generateTime();
+  currentHour = time.hour;
+  currentMinute = time.minute;
+  drawClock(currentHour, currentMinute);
+
+  const input = document.getElementById('answer');
+  input.value = '';
+  input.className = '';
+  input.disabled = false;
+  input.focus();
+
+  document.getElementById('feedback').textContent = '';
+  document.getElementById('feedback').className = 'feedback';
+  document.getElementById('hintBox').style.display = 'none';
+  document.getElementById('checkBtn').disabled = false;
+}
+
+function normalize(str) {
+  return str.toLowerCase().trim().replace(/\s+/g, ' ');
+}
+
+function checkAnswer() {
+  if (waiting) return;
+  const input = document.getElementById('answer');
+  const userAnswer = normalize(input.value);
+  if (!userAnswer) return;
+
+  const accepted = getAcceptedAnswers(currentHour, currentMinute).map(normalize);
+  const fb = document.getElementById('feedback');
+  totalQuestions++;
+
+  if (accepted.includes(userAnswer)) {
+    // Correct!
+    correctAnswers++;
+    consecutiveCorrect++;
+    input.className = 'correct';
+    input.disabled = true;
+
+    const cheers = [
+      'Super gedaan! 🌟',
+      'Fantastisch! ⭐',
+      'Geweldig! 🎉',
+      'Heel goed! 🏆',
+      'Uitstekend! 💪',
+      'Knap hoor! 🌈',
+      'Goed zo! 🎊',
+    ];
+    fb.innerHTML = `<span class="emoji">✅</span> ${cheers[Math.floor(Math.random() * cheers.length)]}`;
+    fb.className = 'feedback correct-fb';
+
+    if (consecutiveCorrect >= 5 && !hardMode) {
+      hardMode = true;
+      document.getElementById('diffBadge').textContent = 'Alle tijden';
+      document.getElementById('diffBadge').classList.add('hard');
+    }
+
+    launchConfetti();
+    updateScore();
+
+    waiting = true;
+    document.getElementById('checkBtn').disabled = true;
+    setTimeout(newQuestion, 1500);
+  } else {
+    // Wrong
+    input.className = 'wrong';
+    const encouragements = [
+      'Probeer het nog eens!',
+      'Bijna! Probeer opnieuw!',
+      'Niet helemaal, nog een keer!',
+      'Blijf proberen, je kan het!',
+    ];
+    fb.innerHTML = `<span class="emoji">🤔</span> ${encouragements[Math.floor(Math.random() * encouragements.length)]}`;
+    fb.className = 'feedback wrong-fb';
+    consecutiveCorrect = 0;
+
+    setTimeout(() => { input.className = ''; }, 600);
+    updateScore();
+  }
+}
+
+function showHint() {
+  if (waiting) return;
+  const hint = getPrimaryAnswer(currentHour, currentMinute);
+  const hintBox = document.getElementById('hintBox');
+  hintBox.textContent = '💡 Het antwoord is: ' + hint;
+  hintBox.style.display = 'block';
+}
+
+function skipQuestion() {
+  if (waiting) return;
+  const primary = getPrimaryAnswer(currentHour, currentMinute);
+  const fb = document.getElementById('feedback');
+  fb.innerHTML = `Het was: <strong>${primary}</strong>`;
+  fb.className = 'feedback wrong-fb';
+  totalQuestions++;
+  consecutiveCorrect = 0;
+  updateScore();
+
+  waiting = true;
+  document.getElementById('checkBtn').disabled = true;
+  document.getElementById('answer').disabled = true;
+  setTimeout(newQuestion, 1800);
+}
+
+function updateScore() {
+  document.getElementById('scoreText').textContent = `${correctAnswers} van ${totalQuestions} goed!`;
+  const starCount = Math.min(correctAnswers, 20);
+  document.getElementById('stars').textContent = '⭐'.repeat(Math.min(starCount, 10));
+}
+
+// ── Enter key ──
+document.getElementById('answer').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') checkAnswer();
+});
+
+// ── Start ──
+newQuestion();
+</script>
+</body>
+</html>
