@@ -268,6 +268,7 @@
     </div>
     <div class="btn-row">
       <button class="btn btn-secondary" onclick="showHint()">💡 Hint</button>
+      <button class="btn btn-secondary" onclick="speakAnswer()">🔊 Hoor het</button>
       <button class="btn btn-secondary" onclick="skipQuestion()">⏭ Volgende</button>
     </div>
     <div class="feedback" id="feedback"></div>
@@ -619,6 +620,7 @@ function checkAnswer() {
 
     launchConfetti();
     updateScore();
+    speak(getPrimaryAnswer(currentHour, currentMinute));
 
     waiting = true;
     document.getElementById('checkBtn').disabled = true;
@@ -647,6 +649,7 @@ function showHint() {
   const hintBox = document.getElementById('hintBox');
   hintBox.textContent = '💡 Het antwoord is: ' + hint;
   hintBox.style.display = 'block';
+  speak(hint);
 }
 
 function skipQuestion() {
@@ -669,6 +672,30 @@ function updateScore() {
   document.getElementById('scoreText').textContent = `${correctAnswers} van ${totalQuestions} goed!`;
   const starCount = Math.min(correctAnswers, 20);
   document.getElementById('stars').textContent = '⭐'.repeat(Math.min(starCount, 10));
+}
+
+// ── Speech ──
+let _voices = [];
+if (window.speechSynthesis) {
+  const loadVoices = () => { _voices = window.speechSynthesis.getVoices(); };
+  loadVoices();
+  window.speechSynthesis.addEventListener('voiceschanged', loadVoices);
+}
+
+function speak(text) {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.lang = 'nl-NL';
+  utt.rate = 0.85;
+  utt.pitch = 1.1;
+  const nlVoice = _voices.find(v => v.lang === 'nl-NL') || _voices.find(v => v.lang.startsWith('nl'));
+  if (nlVoice) utt.voice = nlVoice;
+  window.speechSynthesis.speak(utt);
+}
+
+function speakAnswer() {
+  speak(getPrimaryAnswer(currentHour, currentMinute));
 }
 
 // ── Enter key ──
