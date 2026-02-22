@@ -588,6 +588,11 @@ function normalize(str) {
   return str.toLowerCase().trim().replace(/\s+/g, ' ');
 }
 
+function normalizeAliases(str) {
+  // Treat "na" and "over" as interchangeable (both used in Belgian Dutch)
+  return str.replace(/\bna\b/g, 'over');
+}
+
 function checkAnswer() {
   if (waiting) return;
   const input = document.getElementById('answer');
@@ -598,7 +603,10 @@ function checkAnswer() {
   const fb = document.getElementById('feedback');
   totalQuestions++;
 
-  if (accepted.includes(userAnswer)) {
+  // Match directly OR after normalising "na"↔"over" (both used in Belgian Dutch)
+  const isCorrect = accepted.includes(userAnswer) || accepted.includes(normalizeAliases(userAnswer));
+
+  if (isCorrect) {
     // Correct!
     correctAnswers++;
     consecutiveCorrect++;
